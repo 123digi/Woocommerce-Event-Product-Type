@@ -1,0 +1,15 @@
+#wc_ept_fields .options_group {
+        
+}
+#wc_ept_fields .wc-ept-admin-hdr {
+    margin: 10px 10px 10px 0;
+    padding: 10px;
+    font-size: 15px;
+    height: auto;
+    line-height: 1.2;   
+    background: #eee;
+    border: none;
+    border-radius: 2px;
+    -moz-border-radius: 2px;
+    -webkit-border-radius: 2px;
+}
