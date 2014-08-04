@@ -115,7 +115,7 @@ class WC_Product_Event extends WC_Product {
     }
 
     public function event_sale_has_passed() {
-        return ( $this->meta->event_last_sale_date && $this->meta->event_last_sale_date <= $this->timenow ) ? true : false;
+        return $this->meta->event_last_sale_date && $this->meta->event_last_sale_date <= $this->timenow ? true : false;
     }    
 
     public function early_bird_sale_is_active() {
