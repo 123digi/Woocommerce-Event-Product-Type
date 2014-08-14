@@ -183,11 +183,7 @@ function wc_ept_custom_settings() {
 add_action( 'woocommerce_product_options_general_product_data', 'wc_ept_custom_settings' );
 
 // Save meta fields when creating or editing product
-function wp_ept_save_meta_fields( $post_id ) {
-
-    if ( isset( $_POST['product-type'] ) && $_POST['product-type'] != 'event' ) {
-        return false;
-    }
+function wp_ept_save_meta_fields( $product_id ) {
 
     $wc_ept_fields = array(
         'wc_ept_event_date',
@@ -208,23 +204,25 @@ function wp_ept_save_meta_fields( $post_id ) {
 
     foreach ( $wc_ept_fields as $field ) {
         if ( ! empty( $_POST[$field] ) ) {
-            update_post_meta( $post_id, $field, esc_attr( $_POST[$field] ) );
+            update_post_meta( $product_id, $field, esc_attr( $_POST[$field] ) );
         } else {
-            update_post_meta( $post_id, $field, '' );
+            update_post_meta( $product_id, $field, '' );
         }
     }
 
     // Check if early bird sale is checked
     $early_bird_sale = isset( $_POST['wc_ept_has_early_bird_sale'] ) ? 'yes' : '';
-    update_post_meta( $post_id, 'wc_ept_has_early_bird_sale', $early_bird_sale );
+    update_post_meta( $product_id, 'wc_ept_has_early_bird_sale', $early_bird_sale );
 
-    $_POST['_regular_price'] = $_POST['wc_ept_event_price'];
-    update_post_meta( $post_id, '_regular_price', $_POST['_regular_price'] );
+    // Set price so product is not disabled by Woocommerce
+    update_post_meta( $product_id, '_price', 0 );
+    update_post_meta( $product_id, '_regular_price', 0 );
 
+    // Clean up transient data from product
     wc_delete_product_transients( $product_id );
     
 }
-add_action( 'woocommerce_process_product_meta', 'wp_ept_save_meta_fields' );
+add_action( 'woocommerce_process_product_meta_event', 'wp_ept_save_meta_fields' );
 
 // Enqueue scripts and stylesheets in admin
 function wc_ept_enqueue_scripts() {
@@ -243,14 +241,15 @@ function wc_ept_add_pricing_to_product() {
 }
 add_action( 'woocommerce_before_add_to_cart_button', 'wc_ept_add_pricing_to_product' );
 
+// Add order meta to item in cart
 function wc_ept_add_cart_item_meta( $id, $item ) {
-    // wp_debug( $item, 'action:woocommerce_add_order_item_meta' );
-
-    if ( empty( $item['wc_ept_product_type'] ) ) return false;
-    woocommerce_add_order_item_meta( $id, 'wc_ept_product_type', $item['wc_ept_product_type'], true );
+    if ( ! empty( $item['wc_ept_product_type'] ) ) {
+        wc_add_order_item_meta( $id, 'wc_ept_product_type', $item['wc_ept_product_type'], true );
+    }
 }
-add_action( 'woocommerce_add_order_item_meta', 'wc_ept_add_cart_item_meta', 10, 2 );
+add_action( 'woocommerce_add_order_item_meta', 'wc_ept_add_cart_item_meta', 1, 2 );
 
+// Set custom pricing in cart
 function wc_ept_set_custom_pricing( $cart_object ) {
     foreach ( $cart_object->cart_contents as $key => $item ) {
 
@@ -261,10 +260,36 @@ function wc_ept_set_custom_pricing( $cart_object ) {
                 $item['data']->price = $get_price;
             }
         }
-
-        // wp_debug( $item, 'action:woocommerce_before_calculate_totals' );
     }
 }
 add_action( 'woocommerce_before_calculate_totals', 'wc_ept_set_custom_pricing' );
+
+// Make sure to remove custom meta if items removed from cart
+function wc_ept_remove_user_custom_data_options_from_cart( $cart_item_key ) {
+    global $woocommerce;
+    $cart = $woocommerce->cart->get_cart();
+
+    foreach( $cart as $key => $values ) {
+        if ( $values['wdm_user_custom_data_value'] == $cart_item_key ) {
+            unset( $woocommerce->cart->cart_contents[$key] );
+        }
+    }
+}
+add_action( 'woocommerce_before_cart_item_quantity_zero', 'wc_ept_remove_user_custom_data_options_from_cart', 1, 1 );
+
+
+
+function check_if_event_downloadable() {
+    global $woocommerce;    
+
+    foreach ( $woocommerce->cart->cart_contents as $key => $cart_item ) {        
+        
+        if ( $woocommerce->cart->cart_contents[$key]['data']->downloadable ) {
+            $woocommerce->cart->cart_contents[$key]['data']->downloadable = '';
+        }
+    }
+}
+
+add_action( 'woocommerce_before_checkout_process', 'check_if_event_downloadable' );
 
 ?>

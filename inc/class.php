@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 class WC_Product_Event extends WC_Product {
 
-    private $timenow;
+    public $timenow;
 
     public function __construct( $product ) {
         $this->product_type = 'event';
@@ -14,6 +14,20 @@ class WC_Product_Event extends WC_Product {
         $this->meta     = $this->get_meta();
     }
 
+    /**
+    * Checks if a product is downloadable
+    *
+    * @access public
+    * @return bool
+    */
+    public function is_downloadable() {
+        return $this->downloadable == 'yes' ? true : false;
+    }
+
+    /**
+     * Returns object containg meta fields and values
+     * @return object
+     */
     public function get_meta() {
 
         $meta_fields = array(
@@ -55,6 +69,10 @@ class WC_Product_Event extends WC_Product {
         return $meta;
     }
 
+    /**
+     * Returns the pricing schema as an array
+     * @return array
+     */
     public function get_pricing() {
 
         global $wc_ept;        
@@ -91,6 +109,11 @@ class WC_Product_Event extends WC_Product {
         
     }
 
+    /**
+     * Return the current price of the product specified by $type
+     * @param string $type {regular}{sale}
+     * @return string
+     */
     public function get_current_price( $type = '' ) {
         $pricing = $this->get_pricing();
 
@@ -110,14 +133,59 @@ class WC_Product_Event extends WC_Product {
 
     }
 
+    /**
+     * Check to see if the product has an event date attached to it
+     * @return boolean
+     */
+    public function has_event() {
+        return ! empty( $this->meta->event_date ) && ! empty( $this->meta->event_price ) ? true : false;
+    }
+
+    /**
+     * Check to see if this product has a recording available for purchase
+     * @return boolean
+     */
+    public function has_recording() {
+        return ! empty( $this->meta->recording_price ) ? true : false;
+    }
+
+    public function can_add_to_cart() {
+        if ( $this->has_event() || $this->has_recording() ) {
+
+            if ( $this->has_recording() ) {
+                return true;
+            } else {
+                if ( $this->has_event() && ! $this->event_sale_has_passed() ) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }            
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Check to see if the event date has passed
+     * @return boolean
+     */
     public function event_has_past() {
         return $this->meta->event_date && $this->meta->event_date >= $this->timenow ? false : true;
     }
 
+    /**
+     * Check to see if the event sale has passed
+     * @return boolean
+     */
     public function event_sale_has_passed() {
         return $this->meta->event_last_sale_date && $this->meta->event_last_sale_date <= $this->timenow ? true : false;
     }    
 
+    /**
+     * Check to see if early bird sale is currently active
+     * @return boolean
+     */
     public function early_bird_sale_is_active() {
         if ( ! $this->meta->has_early_bird_sale ) return false;
         if ( ! $this->meta->early_bird_sale_ends ) return false;
@@ -135,6 +203,10 @@ class WC_Product_Event extends WC_Product {
         }
     }
 
+    /**
+     * Return HTML formated pricing options
+     * @return string
+     */
     public function get_pricing_html() {
 
         global $wc_ept;        
@@ -161,25 +233,67 @@ class WC_Product_Event extends WC_Product {
             $html = '<ul id="wc_ept_pricing">' . $html . '</ul>';
 
             if ( $this->early_bird_sale_is_active() ) {
-                $html .= '<div id="wc_ept_early_bird_message"><p>Purchase before ' . $this->format_ept_datestamp( $this->meta->early_bird_sale_ends ) . ' to get the early bird price!</p></div>';
+                $html .= '<div id="wc_ept_early_bird_message"><p>Purchase before <strong>' . $this->format_ept_datestamp( $this->meta->early_bird_sale_ends ) . '</strong> to get the early bird price!</p></div>';
             }
         } else {
-            $html = '<p>Pricing is not available for this product</p>';
+            $html = '<p>Pricing Not Available</p>';
         }
 
         return $html;
     }
 
+    /**
+     * Converts a timestamp to an EPT Datestamp (YYYYMMDD)
+     * @param type $string 
+     * @return string
+     */
     private function string_to_ept_datestamp( $string = '' ) {
         $stamp = strtotime( $string );
         return $stamp ? date( 'Ymd', $stamp ) : $string;
     }
 
+    /**
+     * Formats a given timestamp or EPT Datestamp
+     * @param (string) $string 
+     * @return string
+     */
     public function format_ept_datestamp( $string = '' ) {
         $stamp = strtotime( $string );
         return $stamp ? date( get_option( 'date_format' ), $stamp ) : $string;
     }
 
+    /**
+     * Returns the formated event date
+     * @return boolean
+     */
+    public function get_event_date() {
+        return ! empty( $this->meta->event_date ) ? $this->format_ept_datestamp( $this->meta->event_date ) : '';
+    }
+
+    /**
+     * Returns the formated event time
+     * @return string
+     */
+    public function get_event_time() {
+        $return = '';
+
+        if ( ! empty( $this->meta->event_starting_time ) ) {
+            $return = $this->meta->event_starting_time;
+
+            if ( ! empty( $this->meta->event_ending_time ) ) {
+                $return = $return . ' - ' . $this->meta->event_ending_time;
+            }
+        }
+
+        return $return;
+    }
+
+    /**
+     * Returns value from global variable {$wc_ept}
+     * @param string $key 
+     * @param int $index 
+     * @return string
+     */
     private function get_value_from_global( $key = '', $index = 0 ) {
         global $wc_ept;
         if ( empty( $key ) || $key == '' ) return '';
