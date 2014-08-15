@@ -247,11 +247,11 @@ class WC_Product_Event extends WC_Product {
      * @param type $string 
      * @return string
      */
-    private function string_to_ept_datestamp( $string = '' ) {
+    public function string_to_ept_datestamp( $string = '' ) {
         $stamp = strtotime( $string );
         return $stamp ? date( 'Ymd', $stamp ) : $string;
     }
-
+    
     /**
      * Formats a given timestamp or EPT Datestamp
      * @param (string) $string 
@@ -286,6 +286,14 @@ class WC_Product_Event extends WC_Product {
         }
 
         return $return;
+    }
+
+    /**
+     * Returns the event date as a timestamp
+     * @return string
+     */
+    public function get_event_timestamp() {
+        return strtotime( $this->meta->event_date );
     }
 
     /**
